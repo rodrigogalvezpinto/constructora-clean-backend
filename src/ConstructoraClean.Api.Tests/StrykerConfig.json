@@ -1,0 +1,50 @@
+{
+  "$schema": "https://stryker-mutator.io/stryker.schema.json",
+  "project": "ConstructoraClean.Api.Tests.csproj",
+  "reporters": [ "html", "progress", "json", "cleartext" ],
+  "logLevel": "info",
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": 60
+  },
+  "mutate": [
+    "**/*.cs",
+    "!**/Program.cs",
+    "!**/Startup.cs"
+  ],
+  "test-projects": [
+    "ConstructoraClean.Api.Tests.csproj"
+  ],
+  "exclude-files": [
+    "**/bin/**/*",
+    "**/obj/**/*",
+    "**/Properties/**/*"
+  ],
+  "mutators": {
+    "arithmetic": true,
+    "equality": true,
+    "logical": true,
+    "assignment": true,
+    "unary": true,
+    "update": true,
+    "checked": true,
+    "linq": true,
+    "stringmethod": true,
+    "interpolatedstring": true,
+    "nullcoalescing": true,
+    "checkedstatement": true,
+    "block": true,
+    "conditional": true,
+    "initializer": true,
+    "regex": true
+  },
+  "since": {
+    "enabled": false
+  },
+  "dashboard": {
+    "project": "github.com/usuario/constructora-clean-backend",
+    "version": "main"
+  },
+  "break-on-initial-test-failure": false
+}

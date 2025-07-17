@@ -1,0 +1,1696 @@
+  # Reglas Enterprise para Desarrollo .NET
+
+> **Versión profesional, orientada a equipos enterprise y sistemas críticos.**
+> Incluye prácticas modernas, contexto, contraejemplos, justificación y ejemplos listos para producción.
+
+  # Reglas Enterprise para Desarrollo .NET
+
+> **Versión profesional, orientada a equipos enterprise y sistemas críticos.**
+> Incluye prácticas modernas, contexto, contraejemplos, justificación y ejemplos listos para producción.
+
+## Tabla de Contenido
+- [Clean Architecture en .NET 8 - Implementación Completa](#clean-architecture-en-net-8---implementación-completa)
+- [Repository Pattern y CQRS - Ejemplo Real](#repository-pattern-y-cqrs---ejemplo-real)
+- [Dependency Injection Avanzado](#dependency-injection-avanzado)
+- [Testing de Arquitectura Limpia](#testing-de-arquitectura-limpia)
+- [1. Estilo y Estructura de Código](#1-estilo-y-estructura-de-código)
+- [2. Convenciones de Nombres](#2-convenciones-de-nombres)
+- [3. Uso de C# y .NET](#3-uso-de-c-y-net)
+- [4. Sintaxis y Formato](#4-sintaxis-y-formato)
+- [5. Manejo de Errores y Validación](#5-manejo-de-errores-y-validación)
+- [6. Diseño de APIs y Reglas RESTful](#6-diseño-de-apis-y-reglas-restful)
+- [7. Paginación](#7-paginación)
+- [8. Optimización de Performance](#8-optimización-de-performance)
+- [9. Convenciones Clave](#9-convenciones-clave)
+- [10. Testing](#10-testing)
+- [11. Seguridad](#11-seguridad)
+- [12. Documentación de API](#12-documentación-de-api)
+- [13. CI/CD y Calidad](#13-cicd-y-calidad)
+- [14. Git y Pull Requests](#14-git-y-pull-requests)
+- [15. Manejo de Secrets y Configuración](#15-manejo-de-secrets-y-configuración)
+- [16. Localización](#16-localización)
+- [17. Observabilidad](#17-observabilidad)
+- [18. Recursos de Referencia](#18-recursos-de-referencia)
+- [19. Historial de Cambios](#19-historial-de-cambios)
+
+---
+
+## Clean Architecture en .NET 8 - Implementación Completa
+
+### 🏗️ Estructura de Proyecto Implementada
+
+Este proyecto demuestra la implementación perfecta de Clean Architecture en .NET 8:
+
+```
+ConstructoraClean/
+├── src/
+│   ├── ConstructoraClean.Domain/           # 🎯 Entidades y Reglas de Negocio
+│   │   ├── Entities/                       # Entidades del dominio
+│   │   │   ├── Project.cs
+│   │   │   ├── Material.cs
+│   │   │   └── Purchase.cs
+│   │   └── Interfaces/                     # Contratos del dominio
+│   │       ├── IProjectRepository.cs
+│   │       └── IRegionRepository.cs
+│   │
+│   ├── ConstructoraClean.Application/      # 🎯 Casos de Uso y Lógica de Aplicación
+│   │   ├── Interfaces/                     # Contratos de servicios
+│   │   │   ├── IProjectCostService.cs
+│   │   │   └── IRegionOverrunService.cs
+│   │   └── Queries/                        # CQRS Queries
+│   │       ├── GetProjectCostsQuery.cs
+│   │       └── GetRegionOverrunsQuery.cs
+│   │
+│   ├── ConstructoraClean.Infrastructure/   # 🎯 Implementaciones Técnicas
+│   │   ├── Data/                          # Contexto de datos
+│   │   │   └── DapperContext.cs
+│   │   ├── Repositories/                   # Repository Pattern
+│   │   │   ├── ProjectRepository.cs
+│   │   │   └── RegionRepository.cs
+│   │   ├── Services/                       # Servicios de negocio
+│   │   │   ├── ProjectCostService.cs
+│   │   │   └── RegionOverrunService.cs
+│   │   └── DependencyInjection.cs         # Registro de dependencias
+│   │
+│   └── ConstructoraClean.Api/              # 🎯 Presentación y Controllers
+│       ├── Controllers/                    # Controladores delgados
+│       │   ├── HealthController.cs
+│       │   ├── ProjectsController.cs
+│       │   └── RegionsController.cs
+│       ├── DTOs/                          # Objetos de transferencia
+│       │   ├── ProjectCostsDto.cs
+│       │   └── RegionOverrunDto.cs
+│       └── Program.cs                      # Configuración de la app
+```
+
+### ⚡ Principios Aplicados
+
+1. **Dependency Inversion Principle**: Las dependencias apuntan hacia el dominio
+2. **Single Responsibility**: Cada capa tiene una responsabilidad específica
+3. **Separation of Concerns**: UI, lógica de negocio y datos están separados
+4. **Testability**: Cada capa puede ser testeada independientemente
+
+### 🎯 Entidades del Dominio
+
+```csharp
+// ConstructoraClean.Domain/Entities/Project.cs
+namespace ConstructoraClean.Domain.Entities
+{
+    /// <summary>
+    /// Entidad del dominio que representa un proyecto de construcción
+    /// </summary>
+    public class Project
+    {
+        public int Id { get; set; }
+        public int RegionId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal Budget { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// Entidad del dominio para materiales de construcción
+    /// </summary>
+    public class Material
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Entidad del dominio para compras de materiales
+    /// </summary>
+    public class Purchase
+    {
+        public int Id { get; set; }
+        public int ProjectId { get; set; }
+        public int SupplierId { get; set; }
+        public int MaterialId { get; set; }
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalPrice { get; set; }
+        public DateTime PurchaseDate { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}
+```
+
+### 🔄 Interfaces del Dominio
+
+```csharp
+// ConstructoraClean.Domain/Interfaces/IProjectRepository.cs
+namespace ConstructoraClean.Domain.Interfaces
+{
+    /// <summary>
+    /// Contrato del repositorio de proyectos - define QUÉ se puede hacer
+    /// </summary>
+    public interface IProjectRepository
+    {
+        Task<ProjectCostsResult> GetProjectCostsAsync(int projectId, DateTime fromDate, DateTime toDate);
+    }
+
+    /// <summary>
+    /// Contrato del repositorio de regiones
+    /// </summary>
+    public interface IRegionRepository
+    {
+        Task<IEnumerable<RegionOverrunResult>> GetTopOverrunsAsync(int regionId, int limit);
+    }
+}
+```
+
+---
+
+## Repository Pattern y CQRS - Ejemplo Real
+
+### 🗃️ Repository Pattern Implementado
+
+```csharp
+// ConstructoraClean.Infrastructure/Repositories/ProjectRepository.cs
+namespace ConstructoraClean.Infrastructure.Repositories
+{
+    /// <summary>
+    /// Implementación del repositorio de proyectos usando Dapper
+    /// Encapsula el acceso a datos y la lógica de queries complejas
+    /// </summary>
+    public class ProjectRepository : IProjectRepository
+    {
+        private readonly DapperContext _context;
+
+        public ProjectRepository(DapperContext context)
+        {
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+        }
+
+        public async Task<ProjectCostsResult> GetProjectCostsAsync(int projectId, DateTime fromDate, DateTime toDate)
+        {
+            const string sql = @"
+                WITH monthly_costs AS (
+                    SELECT 
+                        TO_CHAR(purchase_date, 'YYYY-MM') AS month,
+                        SUM(total_price) AS total_cost
+                    FROM purchases
+                    WHERE project_id = @ProjectId
+                      AND purchase_date >= @FromDate 
+                      AND purchase_date <= @ToDate
+                    GROUP BY TO_CHAR(purchase_date, 'YYYY-MM')
+                ),
+                top_materials AS (
+                    SELECT 
+                        m.name AS material_name,
+                        SUM(p.quantity * p.unit_price) AS total_cost
+                    FROM purchases p
+                    JOIN materials m ON p.material_id = m.material_id
+                    WHERE p.project_id = @ProjectId
+                      AND p.purchase_date >= @FromDate 
+                      AND p.purchase_date <= @ToDate
+                    GROUP BY m.name
+                    ORDER BY total_cost DESC
+                    LIMIT 10
+                )
+                SELECT 
+                    COALESCE(SUM(total_price), 0) AS TotalCost
+                FROM purchases 
+                WHERE project_id = @ProjectId 
+                  AND purchase_date >= @FromDate 
+                  AND purchase_date <= @ToDate;
+                
+                SELECT month, total_cost FROM monthly_costs ORDER BY month;
+                
+                SELECT material_name, total_cost FROM top_materials;";
+
+            using var connection = _context.CreateConnection();
+            
+            using var multi = await connection.QueryMultipleAsync(sql, new
+            {
+                ProjectId = projectId,
+                FromDate = fromDate,
+                ToDate = toDate
+            });
+
+            var totalCost = await multi.ReadSingleAsync<decimal>();
+            var monthlyBreakdown = await multi.ReadAsync<MonthlyBreakdownDto>();
+            var topMaterials = await multi.ReadAsync<TopMaterialDto>();
+
+            return new ProjectCostsResult
+            {
+                TotalCost = totalCost,
+                MonthlyBreakdown = monthlyBreakdown.ToList(),
+                TopMaterials = topMaterials.ToList()
+            };
+        }
+    }
+}
+```
+
+### 🎯 CQRS Pattern con Queries
+
+```csharp
+// ConstructoraClean.Application/Queries/GetProjectCostsQuery.cs
+namespace ConstructoraClean.Application.Queries
+{
+    /// <summary>
+    /// Query object que encapsula la consulta de costos de proyecto
+    /// Implementa CQRS separando las consultas de los comandos
+    /// </summary>
+    public record GetProjectCostsQuery(int ProjectId, DateTime FromDate, DateTime ToDate);
+
+    /// <summary>
+    /// Query para obtener sobrecostos por región
+    /// </summary>
+    public record GetRegionOverrunsQuery(int RegionId, int Limit);
+}
+```
+
+### 🔧 Servicios de Aplicación
+
+```csharp
+// ConstructoraClean.Infrastructure/Services/ProjectCostService.cs
+namespace ConstructoraClean.Infrastructure.Services
+{
+    /// <summary>
+    /// Servicio que implementa la lógica de negocio para costos de proyectos
+    /// Utiliza el Repository Pattern para acceso a datos
+    /// </summary>
+    public class ProjectCostService : IProjectCostService
+    {
+        private readonly IProjectRepository _repository;
+
+        public ProjectCostService(IProjectRepository repository)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        }
+
+        public async Task<ProjectCostsDto> GetProjectCostsAsync(int projectId, DateTime fromDate, DateTime toDate)
+        {
+            // Validaciones de negocio
+            if (projectId <= 0)
+                throw new ArgumentException("Project ID must be positive", nameof(projectId));
+            
+            if (fromDate > toDate)
+                throw new ArgumentException("From date cannot be after to date");
+
+            // Delegación al repositorio
+            var result = await _repository.GetProjectCostsAsync(projectId, fromDate, toDate);
+            
+            // Mapeo a DTO de respuesta
+            return new ProjectCostsDto
+            {
+                TotalCost = result.TotalCost,
+                MonthlyBreakdown = result.MonthlyBreakdown,
+                TopMaterials = result.TopMaterials
+            };
+        }
+    }
+}
+```
+
+---
+
+## Dependency Injection Avanzado
+
+### 🔧 Configuración Modular de DI
+
+```csharp
+// ConstructoraClean.Infrastructure/DependencyInjection.cs
+namespace ConstructoraClean.Infrastructure
+{
+    /// <summary>
+    /// Configuración centralizada de dependency injection para la capa de infraestructura
+    /// Implementa el patrón Extension Method para registros modulares
+    /// </summary>
+    public static class DependencyInjection
+    {
+        public static IServiceCollection AddInfrastructure(this IServiceCollection services, 
+            IConfiguration configuration)
+        {
+            // Configuración de contexto de datos
+            services.AddSingleton<DapperContext>(_ => 
+                new DapperContext(configuration.GetConnectionString("DefaultConnection")!));
+
+            // Registro de repositorios (Scoped para mantener consistencia por request)
+            services.AddScoped<IProjectRepository, ProjectRepository>();
+            services.AddScoped<IRegionRepository, RegionRepository>();
+
+            // Registro de servicios de aplicación
+            services.AddScoped<IProjectCostService, ProjectCostService>();
+            services.AddScoped<IRegionOverrunService, RegionOverrunService>();
+
+            return services;
+        }
+    }
+}
+
+// ConstructoraClean.Api/Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Registro modular de servicios
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// 🎯 Registro de la capa de infraestructura
+builder.Services.AddInfrastructure(builder.Configuration);
+
+var app = builder.Build();
+
+// Configuración del pipeline HTTP
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+```
+
+### 🎯 Controladores Delgados (Thin Controllers)
+
+```csharp
+// ConstructoraClean.Api/Controllers/ProjectsController.cs
+namespace ConstructoraClean.Api.Controllers
+{
+    /// <summary>
+    /// Controlador delgado que solo maneja HTTP concerns
+    /// La lógica de negocio está delegada a servicios
+    /// </summary>
+    [ApiController]
+    [Route("api/v1/[controller]")]
+    public class ProjectsController : ControllerBase
+    {
+        private readonly IProjectCostService _projectCostService;
+
+        public ProjectsController(IProjectCostService projectCostService)
+        {
+            _projectCostService = projectCostService ?? throw new ArgumentNullException(nameof(projectCostService));
+        }
+
+        /// <summary>
+        /// Obtiene los costos de un proyecto en un rango de fechas
+        /// </summary>
+        /// <param name="projectId">ID del proyecto</param>
+        /// <param name="from">Fecha de inicio</param>
+        /// <param name="to">Fecha de fin</param>
+        /// <returns>Costos del proyecto con desglose mensual y top materiales</returns>
+        [HttpGet("{projectId}/costs")]
+        public async Task<ActionResult<ProjectCostsDto>> GetProjectCosts(
+            int projectId, 
+            [FromQuery] DateTime from, 
+            [FromQuery] DateTime to)
+        {
+            try
+            {
+                var result = await _projectCostService.GetProjectCostsAsync(projectId, from, to);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (omitted for brevity)
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+    }
+}
+```
+
+---
+
+## Testing de Arquitectura Limpia
+
+### 🧪 Testing con Mocks del Repository Pattern
+
+```csharp
+// ConstructoraClean.Api.Tests/Services/ProjectCostServiceTests.cs
+namespace ConstructoraClean.Api.Tests.Services
+{
+    /// <summary>
+    /// Tests unitarios del servicio de costos de proyectos
+    /// Demuestra testing de Clean Architecture con mocking de repositorios
+    /// </summary>
+    public class ProjectCostServiceTests
+    {
+        private readonly Mock<IProjectRepository> _mockRepository;
+        private readonly ProjectCostService _service;
+
+        public ProjectCostServiceTests()
+        {
+            _mockRepository = new Mock<IProjectRepository>();
+            _service = new ProjectCostService(_mockRepository.Object);
+        }
+
+        [Fact]
+        public async Task GetProjectCostsAsync_WithValidParameters_ReturnsCorrectData()
+        {
+            // Arrange
+            var projectId = 1;
+            var fromDate = new DateTime(2023, 1, 1);
+            var toDate = new DateTime(2023, 12, 31);
+            
+            var expectedResult = new ProjectCostsResult
+            {
+                TotalCost = 1000m,
+                MonthlyBreakdown = new List<MonthlyBreakdownDto>
+                {
+                    new() { Month = "2023-01", TotalCost = 500m },
+                    new() { Month = "2023-02", TotalCost = 500m }
+                },
+                TopMaterials = new List<TopMaterialDto>
+                {
+                    new() { MaterialName = "Cement", TotalCost = 600m },
+                    new() { MaterialName = "Steel", TotalCost = 400m }
+                }
+            };
+
+            _mockRepository
+                .Setup(x => x.GetProjectCostsAsync(projectId, fromDate, toDate))
+                .ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _service.GetProjectCostsAsync(projectId, fromDate, toDate);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.TotalCost.Should().Be(1000m);
+            result.MonthlyBreakdown.Should().HaveCount(2);
+            result.TopMaterials.Should().HaveCount(2);
+            
+            _mockRepository.Verify(x => x.GetProjectCostsAsync(projectId, fromDate, toDate), Times.Once);
+        }
+
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(0)]
+        public async Task GetProjectCostsAsync_WithInvalidProjectId_ThrowsArgumentException(int invalidProjectId)
+        {
+            // Arrange
+            var fromDate = DateTime.Now.AddMonths(-1);
+            var toDate = DateTime.Now;
+
+            // Act & Assert
+            await FluentActions
+                .Invoking(() => _service.GetProjectCostsAsync(invalidProjectId, fromDate, toDate))
+                .Should()
+                .ThrowAsync<ArgumentException>()
+                .WithMessage("*Project ID must be positive*");
+        }
+    }
+}
+```
+
+### 🎯 Testing de Controladores con CQRS
+
+```csharp
+// ConstructoraClean.Api.Tests/Controllers/ProjectsControllerTests.cs
+namespace ConstructoraClean.Api.Tests.Controllers
+{
+    /// <summary>
+    /// Tests de controladores que validan solo HTTP concerns
+    /// La lógica de negocio se testea en los servicios
+    /// </summary>
+    public class ProjectsControllerTests
+    {
+        private readonly Mock<IProjectCostService> _mockService;
+        private readonly ProjectsController _controller;
+
+        public ProjectsControllerTests()
+        {
+            _mockService = new Mock<IProjectCostService>();
+            _controller = new ProjectsController(_mockService.Object);
+        }
+
+        [Fact]
+        public async Task GetProjectCosts_WithValidParameters_ReturnsOkResult()
+        {
+            // Arrange
+            var projectId = 1;
+            var fromDate = new DateTime(2023, 1, 1);
+            var toDate = new DateTime(2023, 12, 31);
+            
+            var expectedDto = TestDataBuilder.CreateProjectCostsDto();
+            
+            _mockService
+                .Setup(x => x.GetProjectCostsAsync(projectId, fromDate, toDate))
+                .ReturnsAsync(expectedDto);
+
+            // Act
+            var result = await _controller.GetProjectCosts(projectId, fromDate, toDate);
+
+            // Assert
+            result.Result.Should().BeOfType<OkObjectResult>();
+            var okResult = result.Result as OkObjectResult;
+            okResult!.Value.Should().BeEquivalentTo(expectedDto);
+        }
+
+        [Fact]
+        public async Task GetProjectCosts_WithServiceException_ReturnsBadRequest()
+        {
+            // Arrange
+            var projectId = -1;
+            var fromDate = DateTime.Now;
+            var toDate = DateTime.Now;
+
+            _mockService
+                .Setup(x => x.GetProjectCostsAsync(projectId, fromDate, toDate))
+                .ThrowsAsync(new ArgumentException("Project ID must be positive"));
+
+            // Act
+            var result = await _controller.GetProjectCosts(projectId, fromDate, toDate);
+
+            // Assert
+            result.Result.Should().BeOfType<BadRequestObjectResult>();
+        }
+    }
+}
+```
+
+### 🔧 Helper para Generación de Datos de Test
+
+```csharp
+// ConstructoraClean.Api.Tests/Helpers/TestDataBuilder.cs
+namespace ConstructoraClean.Api.Tests.Helpers
+{
+    /// <summary>
+    /// Builder pattern para generar datos de test consistentes
+    /// Utiliza Bogus para datos realistas que siguen las reglas del dominio
+    /// </summary>
+    public static class TestDataBuilder
+    {
+        public static readonly Faker<ProjectCostsDto> ProjectCostsDtoFaker = new Faker<ProjectCostsDto>()
+            .RuleFor(x => x.TotalCost, f => f.Random.Decimal(1000, 100000))
+            .RuleFor(x => x.MonthlyBreakdown, f => MonthlyBreakdownDtoFaker.Generate(f.Random.Int(1, 12)))
+            .RuleFor(x => x.TopMaterials, f => TopMaterialDtoFaker.Generate(f.Random.Int(1, 10)));
+
+        public static readonly Faker<MonthlyBreakdownDto> MonthlyBreakdownDtoFaker = new Faker<MonthlyBreakdownDto>()
+            .RuleFor(x => x.Month, f => f.Date.Recent(365).ToString("yyyy-MM"))
+            .RuleFor(x => x.TotalCost, f => f.Random.Decimal(100, 10000));
+
+        public static readonly Faker<TopMaterialDto> TopMaterialDtoFaker = new Faker<TopMaterialDto>()
+            .RuleFor(x => x.MaterialName, f => f.Commerce.ProductMaterial())
+            .RuleFor(x => x.TotalCost, f => f.Random.Decimal(50, 5000));
+
+        public static ProjectCostsDto CreateProjectCostsDto() => ProjectCostsDtoFaker.Generate();
+    }
+}
+```
+
+---
+
+## Principios RESTful Fundamentales
+
+REST (Transferencia de Estado Representacional) es un estilo arquitectónico para el diseño de APIs que promueve:
+
+- **Arquitectura cliente-servidor**: Separación clara entre frontend y backend.
+- **Apatridia**: El servidor no almacena estado de cliente entre solicitudes; cada request contiene toda la información necesaria.
+- **Interfaz uniforme**: Uso consistente de URIs, métodos HTTP y formatos de datos.
+- **Cacheabilidad**: Las respuestas pueden ser explícitamente marcadas como cacheables o no.
+- **Sistema en capas**: Permite la existencia de proxies, balanceadores y capas intermedias.
+- **Código bajo demanda (opcional)**: El servidor puede enviar código ejecutable al cliente (poco utilizado en APIs modernas).
+
+> **Referencia:** [REST Architectural Constraints](https://restfulapi.net/rest-architectural-constraints/)
+
+---
+
+## Arquitectura y Estructura de Carpetas Recomendada (.NET 8+)
+
+En **2025**, las mejores prácticas para la **estructura de archivos y paquetes** en un proyecto **ASP.NET Core REST API** están enfocadas en mantener el código limpio, escalable, mantenible y fácil de testear. Esto implica seguir principios como **SOLID**, **separación de responsabilidades**, **Clean Architecture**, y el uso adecuado de **capas lógicas** del proyecto.
+
+A continuación se muestra una estructura recomendada basada en estándares actuales y patrones modernos como CQRS, MediatR, DDD, repositorios, inyección de dependencias, DTOs, etc.
+
+### 🧱 Estructura Base Recomendada
+```
+MyCompany.MyProject/
+├── MyCompany.MyProject.Api/             👉 Capa de presentación: controladores, middleware, startup
+├── MyCompany.MyProject.Application/      👉 Lógica de negocio, servicios, comandos, consultas, validaciones
+├── MyCompany.MyProject.Domain/           👉 Entidades, interfaces de dominio, reglas de negocio
+├── MyCompany.MyProject.Infrastructure/   👉 Implementaciones técnicas: EF Core, repositorios, external services, logging, etc.
+├── MyCompany.MyProject.Shared/           👉 Configuraciones comunes, constantes, tipos compartidos
+├── MyCompany.MyProject.UnitTests/        👉 Pruebas unitarias a nivel de aplicación
+├── MyCompany.MyProject.IntegrationTests/ 👉 Pruebas de integración con base de datos, APIs, etc.
+```
+
+### 📁 Desglose por Carpeta
+
+#### 1. `MyCompany.MyProject.Api`  
+> Capa de presentación. Controladores, endpoints, autenticación, Swagger, etc.
+- `Controllers/` – Controladores REST `[ApiController]`, `[Route]`
+- `Extensions/` – Métodos de extensión para DI y pipeline
+- `Filters/` – Filtros globales, manejo de excepciones
+- `DTOs/` – Objetos de transferencia de datos
+- `Program.cs` – Configuración de servicios y pipeline HTTP
+- `appsettings.json` – Configuración por entorno
+
+**Ejemplo de controlador con MediatR:**
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    private readonly IMediator _mediator;
+    public ProductsController(IMediator mediator) => _mediator = mediator;
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetProduct(int id)
+    {
+        var result = await _mediator.Send(new GetProductQuery(id));
+        return Ok(result);
+    }
+}
+```
+
+#### 2. `MyCompany.MyProject.Application`
+> Lógica de negocio, casos de uso, comandos, consultas, validaciones.
+- `Commands/`, `Queries/`, `Validators/`, `Interfaces/`, `Models/`, `Exceptions/`
+
+#### 3. `MyCompany.MyProject.Domain`
+> Entidades, objetos de valor, repositorios, eventos de dominio.
+- `Entities/`, `ValueObjects/`, `Enums/`, `Events/`, `Repositories/`
+
+**Ejemplo de interfaz de repositorio:**
+```csharp
+public interface IProductRepository
+{
+    Task<Product> GetByIdAsync(int id);
+    Task AddAsync(Product product);
+    Task UpdateAsync(Product product);
+}
+```
+
+#### 4. `MyCompany.MyProject.Infrastructure`
+> Implementación técnica: acceso a BD, logs, servicios externos.
+- `Data/`, `Repositories/`, `Services/`, `Persistence/`, `Logging/`, `Configuration/`
+
+#### 5. `MyCompany.MyProject.Shared`
+> Componentes compartidos entre todas las capas.
+- `Constants/`, `Types/`, `Settings/`, `Exceptions/`, `Extensions/`
+
+#### 6. `MyCompany.MyProject.UnitTests`
+> Pruebas unitarias de lógica de negocio.
+- `Application/`, `Domain/`, `Shared/`
+
+#### 7. `MyCompany.MyProject.IntegrationTests`
+> Pruebas con base de datos, APIs, servicios externos.
+- `Api/`, `Infrastructure/`, `Fixtures/`
+
+### 🧩 Patrones y Herramientas Recomendadas en 2025
+
+| Propósito | Recomendación |
+|----------|----------------|
+| Inyección de dependencias | Built-in DI o Autofac |
+| ORM | Entity Framework Core |
+| Validación | FluentValidation |
+| Comunicación entre componentes | MediatR |
+| Documentación | Swashbuckle + XML comments |
+| Logging | Serilog o ILogger<T> |
+| Seguridad | JWT Bearer, IdentityServer |
+| Testing | xUnit / NUnit + Moq |
+| Configuración | IOptions<T> + appsettings.json |
+| Pipeline HTTP | Middleware personalizado, filtros |
+| CI/CD | GitHub Actions / Azure DevOps |
+
+### ✅ Ejemplo visual de estructura final
+```
+/src
+  /MyCompany.MyProject.Api
+    Controllers/
+    Extensions/
+    Filters/
+    DTOs/
+    Program.cs
+    appsettings.json
+
+  /MyCompany.MyProject.Application
+    Commands/
+    Queries/
+    Validators/
+    Models/
+    Exceptions/
+
+  /MyCompany.MyProject.Domain
+    Entities/
+    ValueObjects/
+    Enums/
+    Repositories/
+
+  /MyCompany.MyProject.Infrastructure
+    Data/
+    Repositories/
+    Services/
+    Configuration/
+
+  /MyCompany.MyProject.Shared
+    Constants/
+    Types/
+    Extensions/
+
+/test
+  /MyCompany.MyProject.UnitTests
+  /MyCompany.MyProject.IntegrationTests
+```
+
+### 📌 Notas y advertencias
+- En proyectos pequeños, puedes usar una sola solución y carpetas internas.
+- Usa **partial classes** o **features folders** si prefieres agrupar por funcionalidad.
+- Considera Minimal APIs en microservicios.
+- Mantén controladores delgados; delega lógica a Application Layer.
+- Usa DTOs para exponer datos, nunca entidades de dominio.
+- Implementa versionado de API si esperas cambios futuros.
+- No mezcles lógica de infraestructura en Application o Domain.
+- Documenta y automatiza con Swagger/OpenAPI.
+
+---
+
+## 🚫 Errores Comunes y Anti-Patrones a Evitar
+
+Evitar errores comunes y anti-patrones es clave para escribir código limpio, mantenible y escalable. A continuación se listan algunos de los errores más frecuentes en proyectos ASP.NET Core, junto con explicaciones y cómo corregirlos.
+
+---
+
+### 1. **Exponer directamente entidades de dominio como DTOs**
+> ❌ Error: Devolver entidades del modelo de dominio o EF Core directamente en controladores.
+>
+> 💡 Por qué es malo:
+- Exposición innecesaria de datos sensibles o relacionados.
+- Acoplamiento entre la capa de persistencia y la API.
+- Imposibilidad de versionar la API sin romper compatibilidad.
+
+✅ **Solución:** Usa **DTOs (Data Transfer Objects)** para mapear solo los campos necesarios en las respuestas HTTP.
+
+```csharp
+// ❌ Mal ejemplo
+[HttpGet("{id}")]
+public async Task<ActionResult<User>> GetUser(int id)
+{
+    return await _context.Users.FindAsync(id);
+}
+
+// ✅ Buen ejemplo
+[HttpGet("{id}")]
+public async Task<ActionResult<UserDto>> GetUser(int id)
+{
+    var user = await _context.Users.FindAsync(id);
+    return _mapper.Map<UserDto>(user);
+}
+```
+
+---
+
+### 2. **Usar `var` cuando el tipo no es evidente**
+> ❌ Error: Usar `var` sin claridad sobre el tipo devuelto.
+>
+> 💡 Por qué es malo:
+- Reduce la legibilidad del código.
+- Dificulta la comprensión rápida de tipos complejos o anónimos.
+
+✅ **Solución:** Usa `var` solo cuando el tipo sea evidente por el lado derecho de la asignación.
+
+```csharp
+// ❌ Mal ejemplo
+var result = SomeComplexMethod(); // ¿qué tipo devuelve?
+
+// ✅ Buen ejemplo
+var message = "Hola mundo"; // string es claro
+IEnumerable<int> numbers = GetNumbers(); // tipo explícito si no es obvio
+```
+
+---
+
+### 3. **No usar `async/await` correctamente**
+> ❌ Error: Bloquear llamadas asíncronas usando `.Result` o `.Wait()`.
+>
+> 💡 Por qué es malo:
+- Puede causar **deadlocks** en aplicaciones web.
+- Reduce el rendimiento al bloquear hilos.
+
+✅ **Solución:** Siempre usa `async/await` en métodos I/O-bound y evita `.Result`.
+
+```csharp
+// ❌ Mal ejemplo
+var data = GetDataAsync().Result;
+
+// ✅ Buen ejemplo
+var data = await GetDataAsync();
+```
+
+---
+
+### 4. **Capturar excepciones genéricas (`catch (Exception ex)`)**
+> ❌ Error: Capturar todas las excepciones sin discriminación.
+>
+> 💡 Por qué es malo:
+- Oculta errores graves que deberían detener la ejecución.
+- No permite manejar errores específicos de forma adecuada.
+
+✅ **Solución:** Captura solo excepciones específicas y re-lanza cuando no puedas manejarlas.
+
+```csharp
+// ❌ Mal ejemplo
+try
+{
+    // ...
+}
+catch (Exception ex)
+{
+    Log(ex);
+}
+
+// ✅ Buen ejemplo
+try
+{
+    // ...
+}
+catch (InvalidOperationException ex)
+{
+    Log("Operación inválida", ex);
+    throw;
+}
+```
+
+---
+
+### 5. **Uso incorrecto de `using` y recursos no gestionados**
+> ❌ Error: No liberar recursos con `using` o hacerlo manualmente.
+>
+> 💡 Por qué es malo:
+- Fugas de memoria o recursos.
+- Código más propenso a errores.
+
+✅ **Solución:** Usa `using` siempre que trabajes con objetos que implementen `IDisposable`.
+
+```csharp
+// ❌ Mal ejemplo
+var reader = new StreamReader("file.txt");
+var content = reader.ReadToEnd();
+
+// ✅ Buen ejemplo
+using var reader = new StreamReader("file.txt");
+var content = await reader.ReadToEndAsync();
+```
+
+---
+
+### 6. **Colocar `using` dentro de `namespace`**
+> ❌ Error: Incluir directivas `using` dentro de un bloque `namespace`.
+>
+> 💡 Por qué es malo:
+- Puede causar ambigüedades en resolución de tipos.
+- Genera errores difíciles de rastrear en ciertos casos.
+
+✅ **Solución:** Coloca siempre las directivas `using` **fuera** del bloque `namespace`.
+
+```csharp
+// ❌ Mal ejemplo
+namespace MyNamespace
+{
+    using System.Linq;
+    // ...
+}
+
+// ✅ Buen ejemplo
+using System.Linq;
+
+namespace MyNamespace
+{
+    // ...
+}
+```
+
+---
+
+### 7. **Ignorar convenciones de estilo de código**
+> ❌ Error: No seguir convenciones de nomenclatura, formato o estilo.
+>
+> 💡 Por qué es malo:
+- Reducción de legibilidad.
+- Confusión en equipos colaborativos.
+- Dificultad para mantener consistencia.
+
+✅ **Solución:** Usa `.editorconfig`, analizadores de código y sigue guías oficiales de estilo.
+
+Ejemplo:
+```csharp
+// ❌ Mal ejemplo
+int myvar = 0;
+string MY_CONSTANT = "BAD";
+
+// ✅ Buen ejemplo
+int myVar = 0;
+const string MyConstant = "GOOD";
+```
+
+---
+
+### 8. **Controladores gruesos (fat controllers)**
+> ❌ Error: Colocar toda la lógica dentro del controlador.
+>
+> 💡 Por qué es malo:
+- Acoplamiento alto.
+- Dificultad para testear.
+- Violación del principio de responsabilidad única.
+
+✅ **Solución:** Mueve la lógica de negocio a servicios o handlers, mantén controladores delgados.
+
+```csharp
+// ❌ Mal ejemplo
+[ApiController]
+[Route("[controller]")]
+public class OrderController : ControllerBase
+{
+    [HttpPost]
+    public IActionResult CreateOrder([FromBody] OrderDto dto)
+    {
+        if (dto == null || dto.Items.Count == 0)
+            return BadRequest("Order is empty");
+
+        using var context = new AppDbContext();
+        var order = new Order { ... };
+        context.Orders.Add(order);
+        context.SaveChanges();
+        return Ok(order.Id);
+    }
+}
+
+// ✅ Buen ejemplo
+[ApiController]
+[Route("[controller]")]
+public class OrderController : ControllerBase
+{
+    private readonly IOrderService _orderService;
+
+    public OrderController(IOrderService orderService) =>
+        _orderService = orderService;
+
+    [HttpPost]
+    public async Task<IActionResult> CreateOrder(OrderDto dto) =>
+        Ok(await _orderService.CreateOrderAsync(dto));
+}
+```
+
+---
+
+### 9. **Uso inapropiado de LINQ**
+> ❌ Error: Usar múltiples `ToList()` o `Where()` en memoria, o ignorar el orden de filtrado.
+>
+> 💡 Por qué es malo:
+- Rendimiento deficiente al traer datos innecesarios desde la BD.
+- Pérdida de eficiencia en consultas.
+
+✅ **Solución:** Filtra primero, proyecta después, y deja que EF Core traduzca las expresiones.
+
+```csharp
+// ❌ Mal ejemplo
+var customers = db.Customers.ToList()
+    .Where(c => c.City == "Madrid");
+
+// ✅ Buen ejemplo
+var customers = db.Customers
+    .Where(c => c.City == "Madrid")
+    .Select(c => new CustomerDto { Name = c.Name })
+    .ToList();
+```
+
+---
+
+### 10. **No validar modelos ni devolver errores consistentes**
+> ❌ Error: Ignorar validaciones o devolver formatos de error inconsistentes.
+>
+> 💡 Por qué es malo:
+- Clientes tienen dificultad para interpretar errores.
+- Falta de estandarización.
+
+✅ **Solución:** Usa Data Annotations o FluentValidation, e implementa middleware global de excepciones.
+
+```csharp
+// ❌ Mal ejemplo
+if (model == null)
+    return StatusCode(500);
+
+// ✅ Buen ejemplo
+if (!ModelState.IsValid)
+    return ValidationProblem(ModelState);
+```
+
+---
+
+## 🧰 Herramientas Recomendadas para Prevenir Estos Errores
+
+| Herramienta | Propósito |
+|------------|-----------|
+| **Roslyn Analyzers** | Detectar violaciones de estilo y patrones |
+| **.editorconfig** | Mantener coherencia en todo el equipo |
+| **FluentValidation** | Validaciones robustas y centralizadas |
+| **MediatR / CQRS** | Separar comando de consulta y evitar controladores gruesos |
+| **Serilog / ILogger<T>** | Logging estructurado y fácil de analizar |
+| **Swashbuckle / OpenAPI** | Documentación automática de errores y DTOs |
+
+---
+
+## 📝 Nota sobre estrategia de testing en proyectos reales
+
+Si el proyecto está en fase de cambios frecuentes o desarrollo acelerado, es válido priorizar la construcción y estabilización de la funcionalidad principal antes de invertir mucho tiempo en tests automatizados. Una vez que la aplicación esté estable y no requiera cambios estructurales, es el momento ideal para crear una suite de pruebas robusta (unitarias, integración y end-to-end).
+
+Esto evita el doble trabajo de rehacer tests cada vez que cambian los requisitos y asegura que los tests realmente validen el comportamiento final y estable de la aplicación.
+
+**Sin embargo:** En proyectos críticos, regulados o de misión crítica, el enfoque TDD (test-driven development) o tests concurrentes pueden seguir siendo obligatorios.
+
+---
+
+## 🚀 Guía rápida: 10 pasos para arrancar un proyecto ASP.NET Core REST profesional
+
+1. **Recopila y documenta todos los requisitos de negocio.**
+   - Define entidades, casos de uso, reglas, usuarios y restricciones.
+2. **Diseña la arquitectura y estructura de carpetas.**
+   - Aplica Clean Architecture: separa Api, Application, Domain, Infrastructure, Shared, Tests.
+3. **Crea la solución y proyectos base en .NET.**
+   - Usa `dotnet new sln` y agrega proyectos (`Api`, `Application`, `Domain`, etc.).
+4. **Define modelos de dominio y DTOs principales.**
+   - No expongas entidades directamente; usa AutoMapper si es posible.
+5. **Implementa la capa de infraestructura mínima.**
+   - Configura acceso a datos (EF Core, Dapper, etc.), logging, configuración.
+6. **Desarrolla los endpoints y lógica de negocio.**
+   - Mantén controladores delgados; delega lógica a Application Layer.
+7. **Configura seguridad, validación y manejo de errores global.**
+   - Añade autenticación, autorización, validaciones (FluentValidation), middleware de errores.
+8. **Documenta la API con Swagger/OpenAPI.**
+   - Habilita Swashbuckle, agrega comentarios XML y ejemplos.
+9. **Cuando la aplicación esté estable, implementa la suite de tests.**
+    - Crea tests unitarios e integración para los casos críticos y flujos principales.
+10. **Automatiza tareas repetitivas.**
+    - Usa linters, analizadores de código, plantillas de PR y pipelines de CI/CD si aplica.
+
+> **Consejo Senior:** Prioriza la claridad, separación de responsabilidades y automatización. No temas refactorizar antes de escribir tests si el código aún está en movimiento.
+
+---
+
+## 1. Estilo y Estructura de Código
+
+- Utiliza `.editorconfig` y Roslyn Analyzers para aplicar reglas de estilo de forma automática.
+- Escribe código idiomático, conciso y legible.
+- Estructura el proyecto por capas (Controladores, Servicios, Dominio, Datos, etc.).
+- Prefiere patrones orientados a objetos y funcionales según el contexto.
+- **Ejemplo recomendado:**
+  ```csharp
+  public record PedidoDto(int Id, string Cliente, decimal Total);
+  ```
+
+## 2. Convenciones de Nombres
+
+- PascalCase para clases, métodos y miembros públicos.
+- camelCase para variables locales y campos privados.
+- MAYÚSCULAS para constantes.
+- Interfaces con prefijo "I" (ej: `IUserService`).
+- **Ejemplo incorrecto:**
+  - ❌ `public class usuarioService {}`
+
+## 3. Uso de C# y .NET
+
+- Utiliza C# 10+ (records, pattern matching, namespaces a nivel de archivo, etc.).
+- Prefiere LINQ y expresiones lambda.
+- Usa Minimal APIs para microservicios o endpoints simples:
+  ```csharp
+  var app = WebApplication.CreateBuilder(args).Build();
+  app.MapGet("/api/v1/proveedores", (IProveedorService svc, int page, int pageSize) => ...);
+  ```
+
+## 4. Sintaxis y Formato
+
+- Sigue las [Convenciones de Estilo de C# de Microsoft](https://docs.microsoft.com/es-es/dotnet/csharp/fundamentals/coding-style/coding-conventions).
+- Usa `var` cuando el tipo es evidente.
+- Usa interpolación de cadenas y null-coalescing.
+- Aplica reglas de formato con `.editorconfig`.
+
+## 5. Manejo de Errores y Validación
+
+> **Justificación:** Las respuestas uniformes facilitan el manejo de errores en frontend y el logging centralizado.
+
+- Usa excepciones solo para casos excepcionales, no para control de flujo.
+- Implementa middleware global para el manejo de errores.
+- Devuelve errores con estructura estándar:
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "ValidationError",
+      "message": "Uno o más errores de validación ocurrieron.",
+      "details": ["El campo Email es requerido"]
+    }
+  }
+  ```
+- No expongas stacktrace ni mensajes internos en producción.
+- Utiliza Serilog (o similar) para logging estructurado:
+  ```csharp
+  Log.Logger = new LoggerConfiguration()
+      .Enrich.FromLogContext()
+      .WriteTo.Console()
+      .CreateLogger();
+  ```
+
+## 6. Diseño de APIs y Reglas RESTful
+
+> **Justificación:** Seguir estándares globales facilita la integración y el mantenimiento.
+
+- ✅ Usa `kebab-case` para recursos: `/api/user-profiles`
+- ❌ No uses camelCase ni snake_case en URIs.
+- ✅ Usa plural: `/api/orders`
+- ❌ No uses verbos: `/api/getOrders`
+- ✅ Versiona la API: `/api/v1/orders`
+- ❌ No mezcles versiones en la misma ruta.
+- Métodos HTTP: GET, POST, PUT, PATCH, DELETE.
+- Códigos de estado: 200, 201, 204, 400, 404, 500.
+- Usa `[ApiController]` y `[Route]` para el ruteo.
+- Documenta todos los endpoints y modelos en Swagger.
+
+### Diferencia entre PUT y PATCH
+
+| Característica | PUT (Reemplazo completo) | PATCH (Actualización parcial) |
+|---|---|---|
+| Objetivo | Reemplaza todo el recurso | Modifica campos específicos |
+| Cuerpo de la solicitud | Objeto completo | Solo los campos a modificar |
+| Idempotente | Sí | No necesariamente |
+| Caso de uso | Actualización total | Cambios parciales |
+
+**Ejemplo PUT:**
+```csharp
+[HttpPut("{id}")]
+public IActionResult UpdateUser(int id, UserDto dto) {
+    // Reemplaza todo el usuario
+}
+```
+**Ejemplo PATCH:**
+```csharp
+[HttpPatch("{id}")]
+public IActionResult PatchUser(int id, JsonPatchDocument<UserDto> patch) {
+    // Modifica sólo algunos campos
+}
+```
+
+### Ejemplo de rutas anidadas y jerárquicas
+
+- Bueno: `/api/users/{userId}/orders/{orderId}` (pedido de un usuario específico)
+- Malo: `/api/orders/{orderId}` (si la relación depende del usuario)
+
+### Parámetros de ruta vs. parámetros de consulta
+- **Ruta:** Identifican recursos (`/api/users/{id}`)
+- **Query:** Filtran, ordenan o paginan (`/api/users?role=admin&page=2`)
+
+### Ejemplo completo: CRUD, modelos, servicio e inyección de dependencias en .NET 8
+
+#### 1. Modelo de Dominio y DTO
+```csharp
+// OurHero.cs
+public class OurHero {
+    public int Id { get; set; }
+    [Required]
+    public string FirstName { get; set; }
+    public string LastName { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+
+// AddUpdateOurHero.cs
+public class AddUpdateOurHero {
+    [Required]
+    public string FirstName { get; set; }
+    public string LastName { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+```
+
+#### 2. Servicio de negocio en memoria
+```csharp
+public interface IOurHeroService {
+    List<OurHero> GetAll(bool? isActive = null);
+    OurHero? GetById(int id);
+    OurHero Add(AddUpdateOurHero dto);
+    OurHero? Update(int id, AddUpdateOurHero dto);
+    bool Delete(int id);
+}
+
+public class OurHeroService : IOurHeroService {
+    private readonly List<OurHero> _heroes = new() { new OurHero { Id = 1, FirstName = "Test" } };
+    public List<OurHero> GetAll(bool? isActive = null) =>
+        isActive == null ? _heroes : _heroes.Where(h => h.IsActive == isActive).ToList();
+    public OurHero? GetById(int id) => _heroes.FirstOrDefault(h => h.Id == id);
+    public OurHero Add(AddUpdateOurHero dto) {
+        var hero = new OurHero {
+            Id = _heroes.Any() ? _heroes.Max(h => h.Id) + 1 : 1,
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            IsActive = dto.IsActive
+        };
+        _heroes.Add(hero);
+        return hero;
+    }
+    public OurHero? Update(int id, AddUpdateOurHero dto) {
+        var hero = _heroes.FirstOrDefault(h => h.Id == id);
+        if (hero == null) return null;
+        hero.FirstName = dto.FirstName;
+        hero.LastName = dto.LastName;
+        hero.IsActive = dto.IsActive;
+        return hero;
+    }
+    public bool Delete(int id) {
+        var hero = _heroes.FirstOrDefault(h => h.Id == id);
+        if (hero == null) return false;
+        _heroes.Remove(hero);
+        return true;
+    }
+}
+```
+
+#### 3. Registro del servicio en Program.cs
+```csharp
+// En Program.csuilder.Services.AddSingleton<IOurHeroService, OurHeroService>();
+```
+
+#### 4. Controlador CRUD RESTful
+```csharp
+[ApiController]
+[Route("api/v1/heroes")]
+public class OurHeroController : ControllerBase {
+    private readonly IOurHeroService _service;
+    public OurHeroController(IOurHeroService service) => _service = service;
+
+    // Obtener todos los héroes (con filtro opcional por activo)
+    [HttpGet]
+    public ActionResult<List<OurHero>> GetAll([FromQuery] bool? isActive) =>
+        Ok(_service.GetAll(isActive));
+
+    // Obtener un héroe por ID
+    [HttpGet("{id}")]
+    public ActionResult<OurHero> GetById(int id) {
+        var hero = _service.GetById(id);
+        return hero == null ? NotFound() : Ok(hero);
+    }
+
+    // Crear un nuevo héroe
+    [HttpPost]
+    public async Task<ActionResult<OurHero>> Create([FromBody] AddUpdateOurHero dto) {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var hero = _service.Add(dto);
+        return CreatedAtAction(nameof(GetById), new { id = hero.Id }, hero);
+    }
+
+    // Actualizar un héroe existente
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, [FromBody] AddUpdateOurHero dto) {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var updated = _service.Update(id, dto);
+        return updated == null ? NotFound() : NoContent();
+    }
+
+    // Eliminar un héroe
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id) =>
+        _service.Delete(id) ? NoContent() : NotFound();
+}
+```
+
+> **Nota:** Estos ejemplos son ideales para pruebas, prototipos, onboarding y como base para implementar lógica de negocio real con bases de datos.
+
+### Negociación de contenido y formatos
+- Usa el header `Accept` para soportar JSON, XML, etc.
+- Por defecto en .NET: `application/json`.
+- Puedes habilitar otros formatos con `AddXmlSerializerFormatters()`.
+
+### Ejemplo de headers de caché y ETag
+```csharp
+[HttpGet]
+[ResponseCache(Duration = 60)]
+public IActionResult GetAllProducts() {
+    Response.Headers["Cache-Control"] = "public,max-age=60";
+    Response.Headers["ETag"] = "\"abc123\"";
+    return Ok(_products);
+}
+```
+
+### Rate limiting (limitación de velocidad)
+- Implementa protección ante abuso con paquetes como `AspNetCoreRateLimit`.
+- Ejemplo de configuración:
+```csharp
+services.AddRateLimiter(options => {
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+        httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonimo",
+            factory: _ => new FixedWindowRateLimiterOptions {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            })
+    );
+});
+```
+
+### Estructura uniforme de errores
+- Devuelve errores con estructura JSON clara y autodescriptiva:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ValidationError",
+    "message": "Uno o más errores de validación ocurrieron.",
+    "details": ["El campo Email es requerido"]
+  }
+}
+```
+
+## 7. Paginación
+
+- Usa LINQ con `Skip`/`Take` para paginación en EF Core.
+- Devuelve el header `X-Total-Count`.
+- Parámetros `page` y `pageSize` opcionales, con valores por defecto.
+- Limita el `pageSize` (ej: 100).
+- Documenta en Swagger los parámetros y headers de paginación.
+- **Ejemplo:**
+  ```csharp
+  [HttpGet]
+  public async Task<ActionResult<List<ProveedorReadDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+  {
+      var query = _context.Proveedores.Where(p => p.Activo);
+      var total = await query.CountAsync();
+      var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+      Response.Headers.Add("X-Total-Count", total.ToString());
+      return Ok(items);
+  }
+  ```
+
+## 8. Optimización de Performance
+
+- Usa async/await para operaciones I/O-bound.
+- Implementa caching (`IMemoryCache`, Redis, etc.).
+- Evita N+1 queries; usa `.Include()` en EF Core.
+- Usa herramientas de profiling (dotTrace, BenchmarkDotNet).
+- **Ejemplo incorrecto:**
+  - ❌ Consultar toda la tabla y filtrar en memoria.
+
+## 9. Convenciones Clave
+
+- Usa Dependency Injection para desacoplar y testear.
+- Aplica el patrón Repository solo si la complejidad lo justifica.
+- Usa AutoMapper para mapear DTOs/entidades.
+- Implementa tareas en segundo plano con `IHostedService` o `BackgroundService`.
+- **Ejemplo de DI en Minimal API:**
+  ```csharp
+  builder.Services.AddScoped<IProveedorService, ProveedorService>();
+  ```
+
+## 10. Testing
+
+- Usa xUnit para tests unitarios y Moq para mocking.
+- Usa `WebApplicationFactory` para tests de integración.
+- Considera testcontainers para pruebas con bases reales.
+- Estructura BDD: Arrange (preparar), Act (ejecutar), Assert (verificar).
+- Busca alta cobertura en lógica de negocio.
+- **Ejemplo recomendado:**
+  ```csharp
+  [Fact]
+  public async Task GetAll_ReturnsPagedResults()
+  {
+      // Arrange
+      var factory = new WebApplicationFactory<Program>();
+      var client = factory.CreateClient();
+      // Act
+      var response = await client.GetAsync("/api/v1/proveedores?page=1&pageSize=10");
+      // Assert
+      response.EnsureSuccessStatusCode();
+      Assert.True(response.Headers.Contains("X-Total-Count"));
+  }
+  ```
+- **Ejemplo incorrecto:**
+  - ❌ Test sin asserts o sin mocks.
+- Recursos:
+  - [xUnit Documentation](https://xunit.net/docs/getting-started/netcore/cmdline)
+  - [Moq Documentation](https://github.com/moq/moq4/wiki/Quickstart)
+
+## 11. Seguridad
+
+- Usa middleware de autenticación y autorización.
+- Implementa JWT authentication para APIs stateless.
+- Usa HTTPS y fuerza SSL.
+- Implementa proper CORS policies.
+
+## 12. API Documentation
+
+- Usa Swagger/OpenAPI para documentar todos los endpoints y modelos.
+- Agrega comentarios XML a controladores y modelos para mejorar la documentación de Swagger.
+
+## 13. CI/CD y Calidad
+
+- Usa pipelines automáticos para ejecutar tests y análisis estático (SonarQube, GitHub Actions, Azure DevOps, etc.).
+- No permitas merge a main/master si los tests fallan o hay issues críticos de análisis estático.
+
+## 14. Git y Pull Requests
+
+- Usa mensajes de commit descriptivos y en inglés.
+- Exige revisión de código (code review) para todo PR.
+- Adjunta evidencia de pruebas (screenshots, logs, etc.) en los PRs de endpoints.
+
+## 15. Manejo de Secrets y Configuración
+
+- Usa Azure Key Vault, AWS Secrets Manager o User Secrets en desarrollo.
+- Configura settings por ambiente con `appsettings.{Environment}.json` y variables de entorno.
+- Documenta cómo rotar secrets y actualizar configuraciones.
+
+## 16. Localización
+
+- Usa `IStringLocalizer` para mensajes de error y validaciones si la API será multi-idioma.
+
+## 17. Observabilidad
+
+- Usa logging estructurado (Serilog, NLog, etc.) y correlación de logs con `CorrelationId`.
+- Implementa métricas y health checks (`/health` endpoint).
+
+## 18. Recursos de Referencia
+
+- [eShopOnWeb](https://github.com/dotnet-architecture/eShopOnWeb)
+- [Clean Architecture - Jason Taylor](https://github.com/jasontaylordev/CleanArchitecture)
+- [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
+- [Minimal APIs - Docs](https://learn.microsoft.com/es-es/aspnet/core/fundamentals/minimal-apis)
+- [OpenTelemetry .NET](https://opentelemetry.io/docs/instrumentation/net/)
+
+## 19. Historial de Cambios
+
+- 2025-07-16: Versión enterprise inicial, integración de reglas modernas, ejemplos y apéndices.
+
+
+  You are a senior .NET backend developer and an expert in C#, ASP.NET Core, and Entity Framework Core.
+
+  ## Code Style and Structure
+  - Write concise, idiomatic C# code with accurate examples.
+  - Follow .NET and ASP.NET Core conventions and best practices.
+  - Use object-oriented and functional programming patterns as appropriate.
+  - Prefer LINQ and lambda expressions for collection operations.
+  - Use descriptive variable and method names (e.g., 'IsUserSignedIn', 'CalculateTotal').
+  - Structure files according to .NET conventions (Controllers, Models, Services, etc.).
+
+  ## Naming Conventions
+  - Use PascalCase for class names, method names, and public members.
+  - Use camelCase for local variables and private fields.
+  - Use UPPERCASE for constants.
+  - Prefix interface names with "I" (e.g., 'IUserService').
+
+  ## C# and .NET Usage
+  - Use C# 10+ features when appropriate (e.g., record types, pattern matching, null-coalescing assignment).
+  - Leverage built-in ASP.NET Core features and middleware.
+  - Use Entity Framework Core effectively for database operations.
+
+  ## Syntax and Formatting
+  - Follow the C# Coding Conventions (https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
+  - Use C#'s expressive syntax (e.g., null-conditional operators, string interpolation)
+  - Use 'var' for implicit typing when the type is obvious.
+
+  ## Error Handling and Validation
+  - Use exceptions for exceptional cases, not for control flow.
+  - Implement proper error logging using built-in .NET logging or a third-party logger.
+  - Use Data Annotations or Fluent Validation for model validation.
+  - Implement global exception handling middleware.
+  - Return appropriate HTTP status codes and consistent error responses.
+
+  ## API Design & RESTful Rules
+- Sigue los principios RESTful:
+  - Usa `kebab-case` para nombres de recursos: `/api/proveedores`
+  - Usa sustantivos en plural, nunca verbos: `GET /api/users`
+  - Representa jerarquías en la URI: `/api/users/{userId}/orders`
+- Métodos HTTP recomendados:
+  - GET: obtener recursos
+  - POST: crear recursos
+  - PUT/PATCH: modificar recursos
+  - DELETE: eliminar recursos
+- Códigos de estado HTTP:
+  - 200 OK: éxito
+  - 201 Created: recurso creado
+  - 204 No Content: éxito sin contenido
+  - 400 Bad Request: error de validación
+  - 404 Not Found: no existe el recurso
+  - 500 Internal Server Error: error inesperado
+- Validación y errores:
+  - Usa atributos `[Required]`, `[EmailAddress]`, etc. en los modelos.
+  - Devuelve mensajes de error claros y estructurados en el body.
+  - Usa `ModelState.IsValid` para validar DTOs en los controllers.
+- Documentación:
+  - Usa Swagger (Swashbuckle) para documentar todos los endpoints y modelos.
+  - Especifica los parámetros y respuestas esperadas.
+- Seguridad:
+  - Aplica `[Authorize]` donde sea necesario.
+  - Configura CORS correctamente.
+- Versionado:
+  - Versiona la API usando la ruta (`/api/v1/resource`) o headers si es necesario.
+- Recursos útiles:
+  - [RESTful API Design - Microsoft Docs](https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design)
+  - [Swashbuckle.AspNetCore](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
+
+  ## Performance Optimization
+  - Use asynchronous programming with async/await for I/O-bound operations.
+  - Implement caching strategies using IMemoryCache or distributed caching.
+  - Use efficient LINQ queries and avoid N+1 query problems.
+  - Implement pagination for large data sets.
+
+  ## Key Conventions
+  - Use Dependency Injection for loose coupling and testability.
+  - Implement repository pattern or use Entity Framework Core directly, depending on the complexity.
+  - Use AutoMapper for object-to-object mapping if needed.
+  - Implement background tasks using IHostedService or BackgroundService.
+
+  ## Testing
+
+- Frameworks recomendados:
+  - xUnit (preferido)
+  - Moq para mocking
+- Convenciones de nombres:
+  - El nombre del archivo de test debe ser: `<ClaseAProbar>Tests.cs` (ejemplo: `ProveedorServiceTests.cs`)
+- Cobertura:
+  - Buscar cobertura cercana al 100% para la lógica de negocio.
+  - Excluir código de infraestructura y configuración.
+- Anotaciones y atributos:
+  - `[Fact]`: para tests unitarios simples.
+  - `[Theory]`: para tests parametrizados.
+  - `[InlineData]`: para pasar datos a los tests.
+  - `[Collection]`: para agrupar tests que comparten contexto.
+- Mocking:
+  - Usar Moq para simular dependencias externas.
+  - Inyectar los mocks usando el constructor.
+- Estructura BDD:
+  - Arrange: prepara el entorno, mocks y datos.
+  - Act: ejecuta la acción a probar.
+  - Assert: verifica el resultado esperado.
+
+**Ejemplo:**
+```csharp
+[Fact]
+public void GetAllActivosAsync_ReturnsOnlyActive()
+{
+    // Arrange
+    var mockContext = new Mock<ProveedorDbContext>();
+    // ...configurar mock...
+
+    var service = new ProveedorService(mockContext.Object);
+
+    // Act
+    var result = service.GetAllActivosAsync();
+
+    // Assert
+    Assert.NotNull(result);
+    // ...más asserts...
+}
+```
+- **Ejemplo incorrecto:**
+  - ❌ Test sin asserts o sin mocks.
+- Recursos útiles:
+  - [xUnit Documentation](https://xunit.net/docs/getting-started/netcore/cmdline)
+  - [Moq Documentation](https://github.com/moq/moq4/wiki/Quickstart)
+
+  ## Security
+  - Use Authentication and Authorization middleware.
+  - Implement JWT authentication for stateless API authentication.
+  - Use HTTPS and enforce SSL.
+  - Implement proper CORS policies.
+
+  ## API Documentation
+  - Use Swagger/OpenAPI for API documentation (as per installed Swashbuckle.AspNetCore package).
+  - Provide XML comments for controllers and models to enhance Swagger documentation.
+
+  Follow the official Microsoft documentation and ASP.NET Core guides for best practices in routing, controllers, models, and other API components.
+
+---
+
+## Ejemplo de respuesta de error uniforme
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ValidationError",
+    "message": "Uno o más errores de validación ocurrieron.",
+    "details": ["El campo Email es requerido", "El campo Nombre es requerido"]
+  }
+}
+```
+
+## API Versioning
+- Usa el paquete Microsoft.AspNetCore.Mvc.Versioning.
+- Prefiere versionado por URL (`/api/v1/resource`) o por header.
+- Documenta en Swagger todas las versiones expuestas.
+
+## Pagination
+
+Estandariza la paginación en todos los endpoints que devuelvan colecciones:
+
+- Utiliza LINQ con `Skip(int)` y `Take(int)` en Entity Framework Core.
+- Devuelve el header HTTP `X-Total-Count` con el total de registros disponibles.
+- Los endpoints deben aceptar parámetros de query `page` y `pageSize` (opcionales, con valores por defecto).
+- No modifiques contratos existentes; la paginación debe ser retrocompatible.
+- Documenta en Swagger los parámetros de paginación y el header de respuesta.
+- Limita el tamaño máximo de `pageSize` (ejemplo recomendado: 100).
+
+**Ejemplo:**
+```csharp
+[HttpGet]
+public async Task<ActionResult<List<ProveedorReadDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+{
+    var query = _context.Proveedores.Where(p => p.Activo);
+    var total = await query.CountAsync();
+    var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    Response.Headers.Add("X-Total-Count", total.ToString());
+    return Ok(items);
+}
+```
+
+## Rate Limiting & Throttling
+- Implementa rate limiting para proteger la API de abuso (ej: AspNetCoreRateLimit).
+- Limita el tamaño máximo de `pageSize` (ej: 100).
+
+## CI/CD & Quality Gates
+- Usa pipelines automáticos para ejecutar tests y análisis estático (SonarQube, GitHub Actions, Azure DevOps, etc.).
+- No permitas merge a main/master si los tests fallan o hay issues críticos de análisis estático.
+
+## Git & Pull Request Conventions
+- Usa mensajes de commit descriptivos y en inglés.
+- Exige revisión de código (code review) para todo PR.
+- Adjunta evidencia de pruebas (screenshots, logs, etc.) en los PRs de endpoints.
+
+## Localization
+- Usa `IStringLocalizer` para mensajes de error y validaciones si la API será multi-idioma.
+
+## Observability
+- Usa logging estructurado (Serilog, NLog, etc.) y correlación de logs con `CorrelationId`.
+- Implementa métricas y health checks (`/health` endpoint).
+
+## Swagger Documentation Example
+```csharp
+/// <summary>
+/// Crea un nuevo proveedor.
+/// </summary>
+/// <param name="dto">Datos del proveedor.</param>
+/// <returns>Proveedor creado.</returns>
+[HttpPost]
+public async Task<ActionResult<ProveedorReadDto>> Create([FromBody] ProveedorCreateDto dto) { ... }
+```
+
+```

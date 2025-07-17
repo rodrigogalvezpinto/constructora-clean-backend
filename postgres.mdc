@@ -1,0 +1,820 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 📊 Reglas de Diseño y Buenas Prácticas – Base de Datos (PostgreSQL)
+
+## 🎯 Objetivo
+
+Definir buenas prácticas, convenciones y patrones para el diseño, desarrollo e implementación de una base de datos relacional usando **PostgreSQL**, enfocada en:
+# 🐘 Reglas Enterprise PostgreSQL - Implementación ConstructoraClean
+
+> **Versión profesional, orientada a equipos enterprise y sistemas de alta performance.**
+> Basado en la implementación real del proyecto ConstructoraClean con .NET 8 y Dapper.
+
+## Tabla de Contenido
+- [Implementación Real - Proyecto ConstructoraClean](mdc:#implementación-real---proyecto-constructoraclean)
+- [Diseño de Schema Empresarial](mdc:#diseño-de-schema-empresarial)
+- [Consultas SQL Optimizadas - Ejemplos Reales](mdc:#consultas-sql-optimizadas---ejemplos-reales)
+- [Integración con .NET 8 y Dapper](mdc:#integración-con-net-8-y-dapper)
+- [Testing de Base de Datos](mdc:#testing-de-base-de-datos)
+- [Modelo Relacional - Principios Básicos](mdc:#modelo-relacional---principios-básicos)
+- [Seguridad y Buenas Prácticas](mdc:#seguridad-y-buenas-prácticas)
+- [Performance y Optimización](mdc:#performance-y-optimización)
+
+---
+
+## Implementación Real - Proyecto ConstructoraClean
+
+### 🏗️ Schema de Dominio Implementado
+
+```sql
+-- Schema optimizado para análisis de costos de construcción
+-- Implementa integridad referencial, índices estratégicos y campos calculados
+
+CREATE TABLE regions (
+    region_id   SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE projects (
+    project_id      SERIAL PRIMARY KEY,
+    region_id       INT NOT NULL REFERENCES regions(region_id),
+    name            TEXT NOT NULL,
+    budget          DECIMAL(18,2) NOT NULL CHECK (budget > 0),
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE suppliers (
+    supplier_id SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE materials (
+    material_id SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    unit_price  DECIMAL(18,2),
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE purchases (
+    purchase_id     SERIAL PRIMARY KEY,
+    project_id      INT NOT NULL REFERENCES projects(project_id),
+    supplier_id     INT NOT NULL REFERENCES suppliers(supplier_id),
+    material_id     INT NOT NULL REFERENCES materials(material_id),
+    quantity        INT NOT NULL CHECK (quantity > 0),
+    unit_price      DECIMAL(18,2) NOT NULL CHECK (unit_price > 0),
+    total_price     DECIMAL(18,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    purchase_date   DATE NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 🎯 Índices Estratégicos para Performance
+
+```sql
+-- Índices basados en patrones de consulta real del proyecto
+-- Optimizados para las queries de los endpoints de la API
+
+-- Índice para consultas por proyecto y rango de fechas
+CREATE INDEX idx_purchases_project_date 
+ON purchases(project_id, purchase_date);
+
+-- Índice para agregaciones mensuales
+CREATE INDEX idx_purchases_monthly 
+ON purchases(TO_CHAR(purchase_date, 'YYYY-MM'));
+
+-- Índice para JOIN con materiales (top materials query)
+CREATE INDEX idx_purchases_material_cost 
+ON purchases(material_id, total_price DESC);
+
+-- Índice para consultas por región
+CREATE INDEX idx_projects_region 
+ON projects(region_id);
+
+-- Índice compuesto para análisis de sobrecostos
+CREATE INDEX idx_projects_region_budget 
+ON projects(region_id, budget);
+
+-- Estadísticas para el optimizador
+ANALYZE purchases;
+ANALYZE projects;
+ANALYZE materials;
+```
+
+### 🔧 Triggers para Auditoría Automática
+
+```sql
+-- Función para actualizar timestamp automáticamente
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para proyectos
+CREATE TRIGGER trigger_projects_updated_at
+    BEFORE UPDATE ON projects
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Función para validación de negocio
+CREATE OR REPLACE FUNCTION validate_purchase()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validar que la fecha de compra no sea futura
+    IF NEW.purchase_date > CURRENT_DATE THEN
+        RAISE EXCEPTION 'Purchase date cannot be in the future';
+    END IF;
+    
+    -- Validar que el precio unitario sea positivo
+    IF NEW.unit_price <= 0 THEN
+        RAISE EXCEPTION 'Unit price must be positive';
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_validate_purchase
+    BEFORE INSERT OR UPDATE ON purchases
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_purchase();
+```
+
+---
+
+## Diseño de Schema Empresarial
+
+### 🎨 Principios de Diseño Aplicados
+
+1. **Normalización Inteligente**
+   - 3FN para eliminar redundancias
+   - Campos calculados (`total_price`) para performance
+   - Relaciones explícitas con FK constraints
+
+2. **Tipos de Datos Empresariales**
+   ```sql
+   -- Uso correcto de tipos numéricos
+   budget          DECIMAL(18,2)  -- Precisión fija para montos
+   quantity        INT            -- Enteros para cantidades
+   purchase_date   DATE           -- Solo fecha, sin hora
+   created_at      TIMESTAMP      -- Fecha y hora completa
+   ```
+
+3. **Constraints de Negocio**
+   ```sql
+   -- Validaciones a nivel de base de datos
+   CHECK (budget > 0)           -- Presupuestos positivos
+   CHECK (quantity > 0)         -- Cantidades válidas
+   CHECK (unit_price > 0)       -- Precios positivos
+   UNIQUE (name)                -- Nombres únicos
+   ```
+
+4. **Auditoría Incorporada**
+   ```sql
+   -- Campos de auditoría estándar
+   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   ```
+
+---
+
+## Consultas SQL Optimizadas - Ejemplos Reales
+
+### 🚀 Query 1: Costos de Proyecto con Desglose Mensual
+
+```sql
+-- Endpoint: GET /api/v1/projects/{id}/costs
+-- Optimizada para 1M+ registros, usa CTEs y multi-query
+WITH monthly_costs AS (
+    SELECT 
+        TO_CHAR(purchase_date, 'YYYY-MM') AS month,
+        SUM(total_price) AS total_cost
+    FROM purchases
+    WHERE project_id = $1
+      AND purchase_date >= $2
+      AND purchase_date <= $3
+    GROUP BY TO_CHAR(purchase_date, 'YYYY-MM')
+    ORDER BY month
+),
+top_materials AS (
+    SELECT 
+        m.name AS material_name,
+        SUM(p.total_price) AS total_cost
+    FROM purchases p
+    INNER JOIN materials m ON p.material_id = m.material_id
+    WHERE p.project_id = $1
+      AND p.purchase_date >= $2
+      AND p.purchase_date <= $3
+    GROUP BY m.name
+    ORDER BY total_cost DESC
+    LIMIT 10
+)
+SELECT 
+    -- Total cost query
+    COALESCE(SUM(total_price), 0) AS total_cost
+FROM purchases 
+WHERE project_id = $1 
+  AND purchase_date >= $2 
+  AND purchase_date <= $3;
+
+-- Monthly breakdown query
+SELECT month, total_cost 
+FROM monthly_costs;
+
+-- Top materials query  
+SELECT material_name, total_cost 
+FROM top_materials;
+```
+
+**💡 Optimizaciones aplicadas:**
+- Uso de índice compuesto `(project_id, purchase_date)`
+- CTEs para modularidad y reutilización
+- `COALESCE` para manejar valores nulos
+- `LIMIT` en top materials para controlar resultados
+
+### 🎯 Query 2: Top Overruns por Región
+
+```sql
+-- Endpoint: GET /api/v1/regions/{id}/top-overruns
+-- Calcula porcentaje de sobrecosto con manejo de división por cero
+SELECT 
+    p.project_id,
+    p.name AS project_name,
+    p.budget,
+    COALESCE(SUM(pur.total_price), 0) AS actual_cost,
+    CASE 
+        WHEN p.budget > 0 THEN 
+            ROUND(
+                ((COALESCE(SUM(pur.total_price), 0) / p.budget) - 1) * 100, 
+                2
+            )
+        ELSE 0 
+    END AS overrun_percentage
+FROM projects p
+LEFT JOIN purchases pur ON p.project_id = pur.project_id
+WHERE p.region_id = $1
+GROUP BY p.project_id, p.name, p.budget
+HAVING COALESCE(SUM(pur.total_price), 0) > p.budget
+ORDER BY overrun_percentage DESC
+LIMIT $2;
+```
+
+**💡 Optimizaciones aplicadas:**
+- `LEFT JOIN` para incluir proyectos sin compras
+- `HAVING` para filtrar después de agregación
+- `CASE` para evitar división por cero
+- `ROUND` para precisión de porcentajes
+- Índice en `(region_id, budget)` para ORDER BY optimizado
+
+### 📊 Query 3: Vista Materializada para Reportes
+
+```sql
+-- Vista materializada para dashboards de alta frecuencia
+CREATE MATERIALIZED VIEW monthly_project_summary AS
+SELECT 
+    p.project_id,
+    p.name AS project_name,
+    r.name AS region_name,
+    TO_CHAR(pur.purchase_date, 'YYYY-MM') AS month,
+    SUM(pur.total_price) AS monthly_cost,
+    p.budget,
+    COUNT(DISTINCT pur.material_id) AS unique_materials_count,
+    COUNT(pur.purchase_id) AS purchases_count
+FROM projects p
+INNER JOIN regions r ON p.region_id = r.region_id
+LEFT JOIN purchases pur ON p.project_id = pur.project_id
+GROUP BY 
+    p.project_id, p.name, r.name, 
+    TO_CHAR(pur.purchase_date, 'YYYY-MM'), p.budget
+ORDER BY p.project_id, month;
+
+-- Índice en la vista materializada
+CREATE INDEX idx_monthly_summary_region_month 
+ON monthly_project_summary(region_name, month);
+
+-- Refresh automático (ejecutar en cron job)
+REFRESH MATERIALIZED VIEW CONCURRENTLY monthly_project_summary;
+```
+
+---
+
+## Integración con .NET 8 y Dapper
+
+### 🔌 Contexto de Datos Optimizado
+
+```csharp
+// ConstructoraClean.Infrastructure/Data/DapperContext.cs
+public class DapperContext : IDisposable
+{
+    private readonly string _connectionString;
+    private IDbConnection? _connection;
+
+    public DapperContext(string connectionString)
+    {
+        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+    }
+
+    public IDbConnection CreateConnection()
+    {
+        if (_connection?.State != ConnectionState.Open)
+        {
+            _connection?.Dispose();
+            _connection = new NpgsqlConnection(_connectionString);
+            _connection.Open();
+        }
+        return _connection;
+    }
+
+    public void Dispose()
+    {
+        _connection?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}
+```
+
+### 🗃️ Repository con Multi-Query Optimizado
+
+```csharp
+// Implementación real del repositorio de proyectos
+public async Task<ProjectCostsResult> GetProjectCostsAsync(int projectId, DateTime fromDate, DateTime toDate)
+{
+    const string sql = @"
+        WITH monthly_costs AS (
+            SELECT 
+                TO_CHAR(purchase_date, 'YYYY-MM') AS month,
+                SUM(total_price) AS total_cost
+            FROM purchases
+            WHERE project_id = @ProjectId
+              AND purchase_date >= @FromDate 
+              AND purchase_date <= @ToDate
+            GROUP BY TO_CHAR(purchase_date, 'YYYY-MM')
+        ),
+        top_materials AS (
+            SELECT 
+                m.name AS material_name,
+                SUM(p.total_price) AS total_cost
+            FROM purchases p
+            JOIN materials m ON p.material_id = m.material_id
+            WHERE p.project_id = @ProjectId
+              AND p.purchase_date >= @FromDate 
+              AND p.purchase_date <= @ToDate
+            GROUP BY m.name
+            ORDER BY total_cost DESC
+            LIMIT 10
+        )
+        SELECT COALESCE(SUM(total_price), 0) AS TotalCost
+        FROM purchases 
+        WHERE project_id = @ProjectId 
+          AND purchase_date >= @FromDate 
+          AND purchase_date <= @ToDate;
+        
+        SELECT month, total_cost FROM monthly_costs ORDER BY month;
+        SELECT material_name, total_cost FROM top_materials;";
+
+    using var connection = _context.CreateConnection();
+    
+    using var multi = await connection.QueryMultipleAsync(sql, new
+    {
+        ProjectId = projectId,
+        FromDate = fromDate,
+        ToDate = toDate
+    });
+
+    var totalCost = await multi.ReadSingleAsync<decimal>();
+    var monthlyBreakdown = await multi.ReadAsync<MonthlyBreakdownDto>();
+    var topMaterials = await multi.ReadAsync<TopMaterialDto>();
+
+    return new ProjectCostsResult
+    {
+        TotalCost = totalCost,
+        MonthlyBreakdown = monthlyBreakdown.ToList(),
+        TopMaterials = topMaterials.ToList()
+    };
+}
+```
+
+### ⚙️ Configuración de Connection String
+
+```json
+// appsettings.json - Configuración optimizada para producción
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=constructora;Username=clean;Password=clean123;Pooling=true;Minimum Pool Size=5;Maximum Pool Size=100;Connection Lifetime=300;Command Timeout=60;SSL Mode=Prefer"
+  }
+}
+```
+
+**🎯 Parámetros explicados:**
+- `Pooling=true`: Reutilización de conexiones
+- `Minimum Pool Size=5`: Conexiones mínimas activas
+- `Maximum Pool Size=100`: Límite de conexiones
+- `Connection Lifetime=300`: Tiempo de vida de conexión (5 min)
+- `Command Timeout=60`: Timeout para comandos largos
+- `SSL Mode=Prefer`: Seguridad preferida
+
+---
+
+## Testing de Base de Datos
+
+### 🧪 Helper para Mocking de Dapper
+
+```csharp
+// ConstructoraClean.Api.Tests/Helpers/DatabaseMockHelper.cs
+public static class DatabaseMockHelper
+{
+    public static (Mock<DapperContext>, Mock<IDbConnection>) CreateMockContextWithConnection()
+    {
+        var mockConnection = new Mock<IDbConnection>();
+        var mockContext = new Mock<DapperContext>("test");
+        
+        mockContext.Setup(x => x.CreateConnection()).Returns(mockConnection.Object);
+        
+        return (mockContext, mockConnection);
+    }
+
+    public static void SetupMultiQuery<T1, T2, T3>(
+        Mock<IDbConnection> mockConnection,
+        T1 firstResult,
+        IEnumerable<T2> secondResult,
+        IEnumerable<T3> thirdResult)
+    {
+        var mockGridReader = new Mock<GridReader>();
+        
+        mockGridReader.SetupSequence(x => x.ReadSingleAsync<T1>())
+                     .ReturnsAsync(firstResult);
+        
+        mockGridReader.SetupSequence(x => x.ReadAsync<T2>())
+                     .ReturnsAsync(secondResult);
+                     
+        mockGridReader.SetupSequence(x => x.ReadAsync<T3>())
+                     .ReturnsAsync(thirdResult);
+
+        mockConnection.Setup(x => x.QueryMultipleAsync(
+                It.IsAny<string>(), 
+                It.IsAny<object>(), 
+                It.IsAny<IDbTransaction>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<CommandType?>()))
+            .ReturnsAsync(mockGridReader.Object);
+    }
+}
+```
+
+### 🎯 Test de Integración con PostgreSQL
+
+```csharp
+// Test de integración real usando TestContainers
+[Fact]
+public async Task GetProjectCosts_WithRealDatabase_ReturnsExpectedResults()
+{
+    // Arrange - Setup PostgreSQL container
+    var postgres = new PostgreSqlBuilder()
+        .WithDatabase("test_constructora")
+        .WithUsername("test_user")
+        .WithPassword("test_pass")
+        .Build();
+
+    await postgres.StartAsync();
+
+    var connectionString = postgres.GetConnectionString();
+    var context = new DapperContext(connectionString);
+    
+    // Setup test data
+    await SeedTestData(context);
+    
+    var repository = new ProjectRepository(context);
+
+    // Act
+    var result = await repository.GetProjectCostsAsync(1, 
+        new DateTime(2023, 1, 1), 
+        new DateTime(2023, 12, 31));
+
+    // Assert
+    result.Should().NotBeNull();
+    result.TotalCost.Should().BeGreaterThan(0);
+    result.MonthlyBreakdown.Should().NotBeEmpty();
+    
+    // Cleanup
+    await postgres.StopAsync();
+}
+```
+
+---
+
+## Integridad referencial
+
+Esta implementación está basada en el proyecto ConstructoraClean y demuestra las mejores prácticas para:
+
+- Escalabilidad (1M+ registros optimizados)
+- Rendimiento de consultas complejas
+- Seguridad y robustez
+- Mantenibilidad
+- Facilidad de análisis y reporting
+
+---
+
+## 🧱 Modelo Relacional – Principios Básicos
+
+1. **Normalización adecuada**  
+   - Llevar hasta 3FN o BCNF según el caso.  
+   - Priorizar legibilidad y mantenibilidad sobre denormalización prematura.
+2. **Relaciones explícitas**  
+   - Usar claves foráneas (`FOREIGN KEY`) siempre que haya relación entre tablas.  
+   - Evitar relaciones lógicas ("soft references").
+3. **Nombres descriptivos y consistentes**  
+   - Tablas: plural (`projects`, `purchases`)  
+   - Campos: snake_case (`project_id`, `purchase_date`)  
+   - FKs: `<tabla>_id` (`supplier_id`, `material_id`)
+4. **Uso de tipos de datos apropiados**  
+   - Preferir `BIGINT SERIAL` salvo que se requiera `UUID`.  
+   - Fechas: `DATE` o `TIMESTAMP WITHOUT TIME ZONE`.  
+   - Montos: `DECIMAL(18,2)` o `NUMERIC`.
+5. **Evitar campos nulos innecesarios**  
+   - Definir `NOT NULL` donde aplique.  
+   - Ejemplo: `budget` en `Project` debe ser `NOT NULL`.
+6. **Auditoría básica**  
+   - Incluir columnas como `created_at` y `updated_at` en tablas críticas.
+7. **Convenciones de constraints y claves**  
+   - Usa nombres explícitos: `pk_projects`, `fk_purchases_project_id`, `uq_suppliers_name`, `chk_purchases_quantity`.
+
+---
+
+## 📐 Esquema Recomendado
+
+```sql
+CREATE TABLE regions (
+    region_id   SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE projects (
+    project_id      SERIAL PRIMARY KEY,
+    region_id       INT NOT NULL REFERENCES regions(region_id),
+    name            TEXT NOT NULL,
+    budget          DECIMAL(18,2) NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE suppliers (
+    supplier_id SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE materials (
+    material_id SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    unit_price  DECIMAL(18,2)
+);
+
+CREATE TABLE purchases (
+    purchase_id     SERIAL PRIMARY KEY,
+    project_id      INT NOT NULL REFERENCES projects(project_id),
+    supplier_id     INT NOT NULL REFERENCES suppliers(supplier_id),
+    material_id     INT NOT NULL REFERENCES materials(material_id),
+    quantity        INT NOT NULL CHECK (quantity > 0),
+    unit_price      DECIMAL(18,2) NOT NULL,
+    total_price     DECIMAL(18,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    purchase_date   DATE NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 🔒 Seguridad y Buenas Prácticas de Acceso
+
+1. **Roles y privilegios mínimos**  
+   - Crear roles separados para lectura, escritura y administración.  
+   - Otorgar solo los permisos necesarios a cada aplicación o usuario.
+2. **Evitar uso de superusuario en aplicaciones**  
+   - Nunca conectar apps con el rol `postgres` ni roles con privilegios excesivos.
+3. **Conexiones seguras**  
+   - Habilitar SSL/TLS en ambientes productivos.  
+   - Limitar conexiones desde IPs conocidas.
+4. **Auditoría avanzada**  
+   - Activar logs de conexiones y sentencias relevantes (`log_statement = 'mod'`).
+   - Usar triggers para registrar cambios críticos si aplica.
+5. **Gestión de contraseñas**  
+   - Usar `pgcrypto` para almacenar hashes si se requiere guardar contraseñas.
+
+---
+
+## 🔁 Triggers y Auditoría Avanzada (Opcional)
+
+- Usar triggers para mantener `updated_at` automáticamente:
+
+```sql
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_set_updated_at
+BEFORE UPDATE ON projects
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+```
+
+- Para auditoría de cambios, crear tabla de logs y triggers asociados.
+
+---
+
+## 🔍 Consultas SQL – Buenas Prácticas
+
+1. **Escribir consultas limpias y legibles**  
+   - Indentar correctamente cada línea.  
+   - Usar alias cortos pero significativos.  
+   - Agregar comentarios cuando sea necesario.
+2. **Usar CTEs para modularidad**  
+   - Mejora legibilidad y permite reutilización.
+3. **Preferir JOINs explícitos**  
+   - Evitar sintaxis implícita con comas en FROM.
+4. **Uso correcto de agregaciones y agrupamientos**  
+   - `SUM`, `AVG`, `ROUND`, `TO_CHAR`, `EXTRACT`, etc.
+5. **Manejo de rangos de fechas**  
+   - Usar `>= AND <` para evitar errores de inclusión/exclusión.
+6. **Agrupamiento por periodo**  
+   - Ejemplo: `TO_CHAR(purchase_date, 'YYYY-MM') AS month`
+7. **Limitar resultados con orden definido**  
+   - Siempre acompañar `LIMIT` con `ORDER BY`.
+
+---
+
+## 💡 Ejemplos de Consultas Finales
+
+### Endpoint `/api/v1/projects/{project_id}/costs?from=&to=`
+
+```sql
+WITH monthly_costs AS (
+    SELECT 
+        TO_CHAR(purchase_date, 'YYYY-MM') AS month,
+        SUM(total_price) AS total_cost
+    FROM purchases
+    WHERE project_id = :project_id
+      AND purchase_date BETWEEN :start_date AND :end_date
+    GROUP BY TO_CHAR(purchase_date, 'YYYY-MM')
+),
+top_materials AS (
+    SELECT 
+        m.name AS material_name,
+        SUM(p.quantity * p.unit_price) AS total_cost
+    FROM purchases p
+    JOIN materials m ON p.material_id = m.material_id
+    WHERE p.project_id = :project_id
+      AND p.purchase_date BETWEEN :start_date AND :end_date
+    GROUP BY m.name
+    ORDER BY total_cost DESC
+    LIMIT 10
+)
+SELECT 
+    (SELECT SUM(total_price) FROM purchases WHERE project_id = :project_id AND purchase_date BETWEEN :start_date AND :end_date) AS total_cost,
+    (SELECT jsonb_agg(jsonb_build_object('month', month, 'total_cost', total_cost)) FROM monthly_costs) AS monthly_breakdown,
+    (SELECT jsonb_agg(jsonb_build_object('material', material_name, 'total_cost', total_cost)) FROM top_materials) AS top_materials;
+```
+
+---
+
+### Endpoint `/api/v1/regions/{region_id}/top-overruns?limit=`
+
+```sql
+SELECT 
+    p.project_id,
+    p.name AS project_name,
+    p.budget,
+    COALESCE(SUM(pr.total_price), 0) AS actual_cost,
+    ROUND((COALESCE(SUM(pr.total_price), 0) / p.budget - 1) * 100, 2) AS overrun_percentage
+FROM projects p
+LEFT JOIN purchases pr ON p.project_id = pr.project_id
+WHERE p.region_id = :region_id
+GROUP BY p.project_id, p.name, p.budget
+HAVING COALESCE(SUM(pr.total_price), 0) > p.budget
+ORDER BY overrun_percentage DESC
+LIMIT :limit;
+```
+
+---
+
+## ⚙️ Índices – Optimización
+
+1. **Índices recomendados**  
+   - En todas las columnas usadas en `JOIN` y `WHERE` frecuentes:
+     ```sql
+     CREATE INDEX idx_purchases_project_id ON purchases(project_id);
+     CREATE INDEX idx_purchases_purchase_date ON purchases(purchase_date);
+     ```
+   - Para consultas por rango de fechas:
+     ```sql
+     CREATE INDEX idx_purchases_date_range ON purchases(purchase_date);
+     ```
+   - Para agrupamientos mensuales:
+     ```sql
+     CREATE INDEX idx_purchases_month ON purchases(TO_CHAR(purchase_date, 'YYYY-MM'));
+     ```
+2. **Índices parciales** (opcional)  
+   - Si ciertos filtros son muy comunes:
+     ```sql
+     CREATE INDEX idx_purchases_over_budget ON purchases(project_id) WHERE total_price > 10000;
+     ```
+3. **No sobrecargar con índices**  
+   - Solo crear los necesarios según patrones de consulta.  
+   - Monitorear uso de índices con `pg_stat_user_indexes`.
+
+---
+
+## 🧪 Dataset – Generación Masiva
+
+1. **Script de seed recomendado**  
+   - Usar herramientas como `Faker`, `Python`, `psql`, o extensiones como `pg_generate_random_data`.
+   - Distribuir aleatoriamente los datos a lo largo de 24 meses.
+   - Validar distribución uniforme o sesgada según sea realista.
+2. **Ejemplo de carga masiva (SQL)**
+   ```sql
+   INSERT INTO purchases (project_id, supplier_id, material_id, quantity, unit_price, purchase_date)
+   SELECT 
+       (random() * 99 + 1)::INT, -- 100 proyectos
+       (random() * 49 + 1)::INT, -- 50 proveedores
+       (random() * 499 + 1)::INT, -- 500 materiales
+       (random() * 100 + 1)::INT,
+       (random() * 1000 + 50)::DECIMAL(10,2),
+       ('2022-01-01'::DATE + (random() * 730)::INT)
+   FROM generate_series(1, 1000000);
+   ```
+
+---
+
+## 📈 Performance & Optimización
+
+1. **Plan de ejecución**  
+   - Usar `EXPLAIN (ANALYZE, BUFFERS)` para validar que las consultas estén usando índices y no hagan full scans.
+2. **Particionamiento (opcional)**  
+   - Particionar tabla `purchases` por rango de fechas si el volumen crece exponencialmente.
+3. **Vacuum & Stats**  
+   - Ejecutar `VACUUM ANALYZE purchases;` tras cargas masivas para actualizar estadísticas.
+4. **Monitorización**  
+   - Usar `pg_stat_statements` para identificar consultas lentas.
+
+---
+
+## 🔄 Backup, Restore y Migraciones
+
+1. **Backups regulares**  
+   - Usar `pg_dump` para backups lógicos y `pg_basebackup` para físicos en ambientes productivos.
+   - Automatizar backups diarios y mantener políticas de retención.
+2. **Restauración**  
+   - Probar restores periódicamente en entornos de staging.
+3. **Migraciones controladas**  
+   - Usar herramientas como `Flyway` o `Liquibase` para versionar cambios de esquema.
+4. **No realizar cambios manuales en producción**  
+   - Todo cambio debe pasar por scripts versionados y revisados.
+
+---
+
+## 🏭 Recomendaciones para Ambientes Productivos
+
+- Configura parámetros de recursos (`work_mem`, `maintenance_work_mem`, `max_connections`, etc.) según el tamaño de la base y carga esperada.
+- Habilita logs de queries lentas (`log_min_duration_statement`).
+- Usa `pg_stat_activity` y `pg_locks` para monitoreo de bloqueos.
+- Mantén actualizado PostgreSQL a la versión soportada más reciente.
+- Documenta procedimientos de recuperación ante desastres.
+
+---
+
+## 📦 Estructura del Proyecto – Archivos Clave
+
+```
+/database/
+├── schema.sql         👉 DDL para crear tablas, constraints, indices
+├── seed.sql           👉 Script de inserción inicial
+├── queries.sql        👉 Consultas finales para endpoints
+├── explain-analyze/   👉 Resultados de EXPLAIN ANALYZE de consultas clave
+├── migrations/        👉 Scripts de migración versionados
+└── README.md          👉 Instrucciones de setup y explicación técnica
+```
+
+---
+
+## ✅ Recursos Adicionales
+
+- [PostgreSQL Docs](mdc:https:/www.postgresql.org/docs)
+- [Using EXPLAIN](mdc:https:/www.postgresql.org/docs/current/using-explain.html)
+- [Index Optimization for Beginners](mdc:https:/www.citusdata.com/blog/2019/01/28/indexing-for-performance)
+- [Data Modeling Best Practices](mdc:https:/learn.microsoft.com/en-us/sql/relational-databases/databases/database-design-basics)
+- [Flyway](mdc:https:/flywaydb.org)
+- [Liquibase](mdc:https:/www.liquibase.org)
+- [pgcrypto](mdc:https:/www.postgresql.org/docs/current/pgcrypto.html)
+
+---
+
+**Este documento está alineado a estándares de ingeniería de datos y administración de bases de datos PostgreSQL a nivel enterprise.**
