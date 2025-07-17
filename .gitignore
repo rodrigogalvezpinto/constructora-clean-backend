@@ -413,3 +413,19 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# PostgreSQL data directory
+data/
+
+# IDE files
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.DS_Store
+
+# Test results
+TestResults/
+StrykerOutput/
